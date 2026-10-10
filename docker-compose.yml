@@ -1,0 +1,18 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine # Alpine is lightweight; 15 is a solid, stable version
+    container_name: local-postgres
+    environment:
+      POSTGRES_USER: flows_db_admin
+      POSTGRES_PASSWORD: an_admin_test_password
+      POSTGRES_DB: flows_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
