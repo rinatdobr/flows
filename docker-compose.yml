@@ -14,5 +14,15 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  api_server:
+    build:
+      context: ./api_server
+      dockerfile: Dockerfile
+    container_name: api-server
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
 volumes:
   pgdata:

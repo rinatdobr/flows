@@ -1,0 +1,136 @@
+#include "crow.h"
+#include "DbPool.hpp"
+#include <pqxx/pqxx>
+#include <iostream>
+
+int main() {
+    // 1. Initialize DB Pool
+    std::string conn_str = "host=postgres port=5432 dbname=flows_db user=flows_db_admin password=an_admin_test_password";
+    DbPool::instance().init(conn_str, 16); // 16 connections for 16 threads
+
+    crow::SimpleApp app;
+
+    // ==========================================
+    // CREATE (POST /api/v1/flows)
+    // ==========================================
+    CROW_ROUTE(app, "/api/v1/flows").methods(crow::HTTPMethod::POST)([](const crow::request& req) {
+        auto json = crow::json::load(req.body);
+        if (!json || !json.has("name") || !json.has("description")) {
+            return crow::response(400, "Missing required fields: name, description");
+        }
+
+        std::string name = json["name"].s();
+        std::string desc = json["description"].s();
+
+        try {
+            auto conn_guard = DbPool::instance().acquire();
+            pqxx::work txn(conn_guard.get());
+
+            pqxx::result r = txn.exec_params(
+                "INSERT INTO flows (name, description) VALUES ($1, $2) "
+                "RETURNING id, name, description, created_at::text;",
+                name, desc
+            );
+            txn.commit();
+
+            crow::json::wvalue ret;
+            ret["id"] = r[0]["id"].c_str();
+            ret["name"] = r[0]["name"].c_str();
+            ret["description"] = r[0]["description"].c_str();
+            ret["created_at"] = r[0]["created_at"].c_str();
+
+            return crow::response(201, ret);
+        } catch (const std::exception& e) {
+            return crow::response(500, e.what());
+        }
+    });
+
+    // ==========================================
+    // READ (GET /api/v1/flows/<id>)
+    // ==========================================
+    CROW_ROUTE(app, "/api/v1/flows/<string>").methods(crow::HTTPMethod::GET)([](const std::string& id) {
+        try {
+            auto conn_guard = DbPool::instance().acquire();
+            pqxx::nontransaction read_tx(conn_guard.get()); // nontransaction is faster for pure reads
+
+            pqxx::result r = read_tx.exec_params(
+                "SELECT id, name, description, created_at::text FROM flows WHERE id = $1;", 
+                id
+            );
+
+            if (r.empty()) return crow::response(404);
+
+            crow::json::wvalue ret;
+            ret["id"] = r[0]["id"].c_str();
+            ret["name"] = r[0]["name"].c_str();
+            ret["description"] = r[0]["description"].c_str();
+            ret["created_at"] = r[0]["created_at"].c_str();
+
+            return crow::response(200, ret);
+        } catch (const std::exception& e) {
+            return crow::response(500, e.what());
+        }
+    });
+
+    // ==========================================
+    // UPDATE (PUT /api/v1/flows/<id>)
+    // ==========================================
+    CROW_ROUTE(app, "/api/v1/flows/<string>").methods(crow::HTTPMethod::PUT)([](const crow::request& req, const std::string& id) {
+        auto json = crow::json::load(req.body);
+        if (!json || !json.has("name") || !json.has("description")) {
+            return crow::response(400, "Missing required fields: name, description");
+        }
+
+        std::string name = json["name"].s();
+        std::string desc = json["description"].s();
+
+        try {
+            auto conn_guard = DbPool::instance().acquire();
+            pqxx::work txn(conn_guard.get());
+
+            pqxx::result r = txn.exec_params(
+                "UPDATE flows SET name = $1, description = $2 WHERE id = $3 "
+                "RETURNING id, name, description, created_at::text;",
+                name, desc, id
+            );
+            txn.commit();
+
+            if (r.empty()) return crow::response(404);
+
+            crow::json::wvalue ret;
+            ret["id"] = r[0]["id"].c_str();
+            ret["name"] = r[0]["name"].c_str();
+            ret["description"] = r[0]["description"].c_str();
+            ret["created_at"] = r[0]["created_at"].c_str();
+
+            return crow::response(200, ret);
+        } catch (const std::exception& e) {
+            return crow::response(500, e.what());
+        }
+    });
+
+    // ==========================================
+    // DELETE (DELETE /api/v1/flows/<id>)
+    // ==========================================
+    CROW_ROUTE(app, "/api/v1/flows/<string>").methods(crow::HTTPMethod::DELETE)([](const std::string& id) {
+        try {
+            auto conn_guard = DbPool::instance().acquire();
+            pqxx::work txn(conn_guard.get());
+
+            pqxx::result r = txn.exec_params("DELETE FROM flows WHERE id = $1 RETURNING id;", id);
+            txn.commit();
+
+            if (r.empty()) return crow::response(404);
+
+            return crow::response(204); // 204 No Content
+        } catch (const std::exception& e) {
+            return crow::response(500, e.what());
+        }
+    });
+
+    // 2. Start the Server
+    std::cout << "Starting Crow server on port 8080...\n";
+    app.port(8080).multithreaded().run();
+
+    return 0;
+}
