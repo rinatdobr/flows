@@ -72,6 +72,36 @@ int main() {
         }
     });
 
+
+    // ==========================================
+    // READ ALL (GET /api/v1/flows)
+    // ==========================================
+    CROW_ROUTE(app, "/api/v1/flows").methods(crow::HTTPMethod::GET)([]() {
+        try {
+            auto conn_guard = DbPool::instance().acquire();
+            pqxx::nontransaction read_tx(conn_guard.get());
+
+            pqxx::result r = read_tx.exec(
+                "SELECT id, name, description, created_at::text FROM flows ORDER BY created_at DESC;"
+            );
+
+            crow::json::wvalue::list flows_list;
+            for (auto row : r) {
+                crow::json::wvalue item;
+                item["id"] = row["id"].c_str();
+                item["name"] = row["name"].c_str();
+                item["description"] = row["description"].c_str();
+                item["created_at"] = row["created_at"].c_str();
+                flows_list.push_back(std::move(item));
+            }
+
+            crow::json::wvalue ret = std::move(flows_list);
+            return crow::response(200, ret);
+        } catch (const std::exception& e) {
+            return crow::response(500, e.what());
+        }
+    });
+
     // ==========================================
     // UPDATE (PUT /api/v1/flows/<id>)
     // ==========================================
