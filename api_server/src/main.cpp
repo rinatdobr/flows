@@ -21,15 +21,26 @@ int main() {
 
         std::string name = json["name"].s();
         std::string desc = json["description"].s();
+        
+        // Handle optional start_at and end_at fields
+        std::string start_at_str = "";
+        std::string end_at_str = "";
+        bool has_start_at = json.has("start_at") && json["start_at"].s().size() > 0;
+        bool has_end_at = json.has("end_at") && json["end_at"].s().size() > 0;
+        
+        if (has_start_at) start_at_str = json["start_at"].s();
+        if (has_end_at) end_at_str = json["end_at"].s();
 
         try {
             auto conn_guard = DbPool::instance().acquire();
             pqxx::work txn(conn_guard.get());
 
             pqxx::result r = txn.exec_params(
-                "INSERT INTO flows (name, description) VALUES ($1, $2) "
-                "RETURNING id, name, description, created_at::text;",
-                name, desc
+                "INSERT INTO flows (name, description, start_at, end_at) VALUES ($1, $2, $3, $4) "
+                "RETURNING id, name, description, created_at::text, start_at::text, end_at::text;",
+                name, desc, 
+                (has_start_at ? start_at_str.c_str() : nullptr),
+                (has_end_at ? end_at_str.c_str() : nullptr)
             );
             txn.commit();
 
@@ -38,6 +49,8 @@ int main() {
             ret["name"] = r[0]["name"].c_str();
             ret["description"] = r[0]["description"].c_str();
             ret["created_at"] = r[0]["created_at"].c_str();
+            ret["start_at"] = r[0]["start_at"].c_str();
+            ret["end_at"] = r[0]["end_at"].c_str();
 
             return crow::response(201, ret);
         } catch (const std::exception& e) {
@@ -54,7 +67,7 @@ int main() {
             pqxx::nontransaction read_tx(conn_guard.get()); // nontransaction is faster for pure reads
 
             pqxx::result r = read_tx.exec_params(
-                "SELECT id, name, description, created_at::text FROM flows WHERE id = $1;", 
+                "SELECT id, name, description, created_at::text, start_at::text, end_at::text FROM flows WHERE id = $1;", 
                 id
             );
 
@@ -65,6 +78,8 @@ int main() {
             ret["name"] = r[0]["name"].c_str();
             ret["description"] = r[0]["description"].c_str();
             ret["created_at"] = r[0]["created_at"].c_str();
+            ret["start_at"] = r[0]["start_at"].c_str();
+            ret["end_at"] = r[0]["end_at"].c_str();
 
             return crow::response(200, ret);
         } catch (const std::exception& e) {
@@ -82,7 +97,7 @@ int main() {
             pqxx::nontransaction read_tx(conn_guard.get());
 
             pqxx::result r = read_tx.exec(
-                "SELECT id, name, description, created_at::text FROM flows ORDER BY created_at DESC;"
+                "SELECT id, name, description, created_at::text, start_at::text, end_at::text FROM flows ORDER BY created_at DESC;"
             );
 
             crow::json::wvalue::list flows_list;
@@ -92,6 +107,8 @@ int main() {
                 item["name"] = row["name"].c_str();
                 item["description"] = row["description"].c_str();
                 item["created_at"] = row["created_at"].c_str();
+                item["start_at"] = row["start_at"].c_str();
+                item["end_at"] = row["end_at"].c_str();
                 flows_list.push_back(std::move(item));
             }
 
@@ -113,15 +130,27 @@ int main() {
 
         std::string name = json["name"].s();
         std::string desc = json["description"].s();
+        
+        // Handle optional start_at and end_at fields
+        std::string start_at_str = "";
+        std::string end_at_str = "";
+        bool has_start_at = json.has("start_at") && json["start_at"].s().size() > 0;
+        bool has_end_at = json.has("end_at") && json["end_at"].s().size() > 0;
+        
+        if (has_start_at) start_at_str = json["start_at"].s();
+        if (has_end_at) end_at_str = json["end_at"].s();
 
         try {
             auto conn_guard = DbPool::instance().acquire();
             pqxx::work txn(conn_guard.get());
 
             pqxx::result r = txn.exec_params(
-                "UPDATE flows SET name = $1, description = $2 WHERE id = $3 "
-                "RETURNING id, name, description, created_at::text;",
-                name, desc, id
+                "UPDATE flows SET name = $1, description = $2, start_at = $3, end_at = $4 WHERE id = $5 "
+                "RETURNING id, name, description, created_at::text, start_at::text, end_at::text;",
+                name, desc, 
+                (has_start_at ? start_at_str.c_str() : nullptr),
+                (has_end_at ? end_at_str.c_str() : nullptr),
+                id
             );
             txn.commit();
 
@@ -132,6 +161,8 @@ int main() {
             ret["name"] = r[0]["name"].c_str();
             ret["description"] = r[0]["description"].c_str();
             ret["created_at"] = r[0]["created_at"].c_str();
+            ret["start_at"] = r[0]["start_at"].c_str();
+            ret["end_at"] = r[0]["end_at"].c_str();
 
             return crow::response(200, ret);
         } catch (const std::exception& e) {

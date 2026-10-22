@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
 void main() {
   runApp(const ClientApp());
@@ -31,12 +32,16 @@ class FlowModel {
   final String name;
   final String description;
   final String createdAt;
+  final String? startAt;
+  final String? endAt;
 
   FlowModel({
     required this.id,
     required this.name,
     required this.description,
     required this.createdAt,
+    this.startAt,
+    this.endAt,
   });
 
   factory FlowModel.fromJson(Map<String, dynamic> json) {
@@ -45,6 +50,8 @@ class FlowModel {
       name: json['name'],
       description: json['description'],
       createdAt: json['created_at'],
+      startAt: json['start_at'],
+      endAt: json['end_at'],
     );
   }
 }
@@ -66,22 +73,32 @@ class ApiService {
     }
   }
 
-  Future<void> createFlow(String name, String description) async {
+  Future<void> createFlow(String name, String description, {String? startAt, String? endAt}) async {
     final response = await http.post(
       Uri.parse(baseUrl),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'name': name, 'description': description}),
+      body: jsonEncode({
+        'name': name,
+        'description': description,
+        if (startAt != null && startAt.isNotEmpty) 'start_at': startAt,
+        if (endAt != null && endAt.isNotEmpty) 'end_at': endAt,
+      }),
     );
     if (response.statusCode != 201) {
       throw Exception('Failed to create flow');
     }
   }
 
-  Future<void> updateFlow(String id, String name, String description) async {
+  Future<void> updateFlow(String id, String name, String description, {String? startAt, String? endAt}) async {
     final response = await http.put(
       Uri.parse('$baseUrl/$id'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'name': name, 'description': description}),
+      body: jsonEncode({
+        'name': name,
+        'description': description,
+        if (startAt != null && startAt.isNotEmpty) 'start_at': startAt,
+        if (endAt != null && endAt.isNotEmpty) 'end_at': endAt,
+      }),
     );
     if (response.statusCode != 200) {
       throw Exception('Failed to update flow');
@@ -127,24 +144,113 @@ class _FlowListScreenState extends State<FlowListScreen> {
     final isEditing = flow != null;
     final nameController = TextEditingController(text: flow?.name ?? '');
     final descController = TextEditingController(text: flow?.description ?? '');
+    DateTime? selectedStartDate;
+    DateTime? selectedEndDate;
+
+    // Parse existing dates if editing
+    if (isEditing) {
+      if (flow.startAt != null && flow.startAt!.isNotEmpty) {
+        selectedStartDate = DateTime.parse(flow.startAt!);
+      }
+      if (flow.endAt != null && flow.endAt!.isNotEmpty) {
+        selectedEndDate = DateTime.parse(flow.endAt!);
+      }
+    }
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(isEditing ? 'Edit Flow' : 'New Flow'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Name'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: descController,
-              decoration: const InputDecoration(labelText: 'Description'),
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descController,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+              const SizedBox(height: 16),
+              // Start datetime picker
+              ListTile(
+                leading: const Icon(Icons.calendar_today),
+                title: Text(
+                  selectedStartDate != null
+                      ? _formatDateTime(selectedStartDate!)
+                      : 'Select start datetime (optional)',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                dense: true,
+                onTap: () async {
+                  final DateTime? picked = await showDatePicker(
+                    context: context,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                    initialDate: selectedStartDate ?? DateTime.now(),
+                  );
+                  if (picked != null) {
+                    final TimeOfDay? time = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.fromDateTime(picked),
+                    );
+                    if (time != null) {
+                      final combined = DateTime(
+                        picked.year,
+                        picked.month,
+                        picked.day,
+                        time.hour,
+                        time.minute,
+                      );
+                      setState(() {
+                        selectedStartDate = combined;
+                      });
+                    }
+                  }
+                },
+              ),
+              // End datetime picker
+              ListTile(
+                leading: const Icon(Icons.calendar_today),
+                title: Text(
+                  selectedEndDate != null
+                      ? _formatDateTime(selectedEndDate!)
+                      : 'Select end datetime (optional)',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                dense: true,
+                onTap: () async {
+                  final DateTime? picked = await showDatePicker(
+                    context: context,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                    initialDate: selectedEndDate ?? DateTime.now(),
+                  );
+                  if (picked != null) {
+                    final TimeOfDay? time = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.fromDateTime(picked),
+                    );
+                    if (time != null) {
+                      final combined = DateTime(
+                        picked.year,
+                        picked.month,
+                        picked.day,
+                        time.hour,
+                        time.minute,
+                      );
+                      setState(() {
+                        selectedEndDate = combined;
+                      });
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -157,13 +263,32 @@ class _FlowListScreenState extends State<FlowListScreen> {
               final desc = descController.text.trim();
               if (name.isEmpty || desc.isEmpty) return;
 
+              // Format dates for API (ISO 8601)
+              final startAtStr = selectedStartDate != null
+                  ? selectedStartDate!.toIso8601String()
+                  : '';
+              final endAtStr = selectedEndDate != null
+                  ? selectedEndDate!.toIso8601String()
+                  : '';
+
               Navigator.pop(context); // Close dialog
 
               try {
                 if (isEditing) {
-                  await _apiService.updateFlow(flow.id, name, desc);
+                  await _apiService.updateFlow(
+                    flow.id,
+                    name,
+                    desc,
+                    startAt: startAtStr.isNotEmpty ? startAtStr : null,
+                    endAt: endAtStr.isNotEmpty ? endAtStr : null,
+                  );
                 } else {
-                  await _apiService.createFlow(name, desc);
+                  await _apiService.createFlow(
+                    name,
+                    desc,
+                    startAt: startAtStr.isNotEmpty ? startAtStr : null,
+                    endAt: endAtStr.isNotEmpty ? endAtStr : null,
+                  );
                 }
                 _refreshFlows();
               } catch (e) {
@@ -179,6 +304,11 @@ class _FlowListScreenState extends State<FlowListScreen> {
         ],
       ),
     );
+  }
+
+  String _formatDateTime(DateTime dt) {
+    final formatter = DateFormat('yyyy-MM-dd HH:mm');
+    return formatter.format(dt);
   }
 
   @override
@@ -214,7 +344,17 @@ class _FlowListScreenState extends State<FlowListScreen> {
               final flow = flows[index];
               return ListTile(
                 title: Text(flow.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('${flow.description}\nID: ${flow.id}'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(flow.description),
+                    Text('ID: ${flow.id}'),
+                    if (flow.startAt != null && flow.startAt!.isNotEmpty)
+                      Text('Start: ${_formatDateTime(DateTime.parse(flow.startAt!))}'),
+                    if (flow.endAt != null && flow.endAt!.isNotEmpty)
+                      Text('End: ${_formatDateTime(DateTime.parse(flow.endAt!))}'),
+                  ],
+                ),
                 isThreeLine: true,
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
