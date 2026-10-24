@@ -159,7 +159,7 @@ class _FlowListScreenState extends State<FlowListScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text(isEditing ? 'Edit Flow' : 'New Flow'),
         content: SingleChildScrollView(
           child: Column(
@@ -187,14 +187,14 @@ class _FlowListScreenState extends State<FlowListScreen> {
                 dense: true,
                 onTap: () async {
                   final DateTime? picked = await showDatePicker(
-                    context: context,
+                    context: dialogContext,
                     firstDate: DateTime(2000),
                     lastDate: DateTime(2100),
                     initialDate: selectedStartDate ?? DateTime.now(),
                   );
                   if (picked != null) {
                     final TimeOfDay? time = await showTimePicker(
-                      context: context,
+                      context: dialogContext,
                       initialTime: TimeOfDay.fromDateTime(picked),
                     );
                     if (time != null) {
@@ -224,14 +224,14 @@ class _FlowListScreenState extends State<FlowListScreen> {
                 dense: true,
                 onTap: () async {
                   final DateTime? picked = await showDatePicker(
-                    context: context,
+                    context: dialogContext,
                     firstDate: DateTime(2000),
                     lastDate: DateTime(2100),
                     initialDate: selectedEndDate ?? DateTime.now(),
                   );
                   if (picked != null) {
                     final TimeOfDay? time = await showTimePicker(
-                      context: context,
+                      context: dialogContext,
                       initialTime: TimeOfDay.fromDateTime(picked),
                     );
                     if (time != null) {
@@ -262,6 +262,16 @@ class _FlowListScreenState extends State<FlowListScreen> {
               final name = nameController.text.trim();
               final desc = descController.text.trim();
               if (name.isEmpty || desc.isEmpty) return;
+
+              // Validate: end_at can't be earlier than start_at but can be equal
+              if (selectedStartDate != null && selectedEndDate != null) {
+                if (selectedEndDate!.isBefore(selectedStartDate!)) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(content: Text('Error: End datetime must be the same or after start datetime')),
+                  );
+                  return;
+                }
+              }
 
               // Format dates for API (ISO 8601)
               final startAtStr = selectedStartDate != null

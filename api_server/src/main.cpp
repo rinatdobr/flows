@@ -30,6 +30,13 @@ int main() {
         
         if (has_start_at) start_at_str = json["start_at"].s();
         if (has_end_at) end_at_str = json["end_at"].s();
+        
+        // Validate: end_at can't be earlier than start_at but can be equal
+        if (has_start_at && has_end_at) {
+            if (end_at_str < start_at_str) {
+                return crow::response(400, "Error: End datetime must be the same or after start datetime");
+            }
+        }
 
         try {
             auto conn_guard = DbPool::instance().acquire();
@@ -139,6 +146,13 @@ int main() {
         
         if (has_start_at) start_at_str = json["start_at"].s();
         if (has_end_at) end_at_str = json["end_at"].s();
+        
+        // Validate: end_at can't be earlier than start_at but can be equal
+        if (has_start_at && has_end_at) {
+            if (end_at_str < start_at_str) {
+                return crow::response(400, "Error: End datetime must be the same or after start datetime");
+            }
+        }
 
         try {
             auto conn_guard = DbPool::instance().acquire();
