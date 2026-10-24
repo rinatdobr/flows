@@ -123,6 +123,190 @@ class FlowListScreen extends StatefulWidget {
   State<FlowListScreen> createState() => _FlowListScreenState();
 }
 
+class FlowDialog extends StatefulWidget {
+  final bool isEditing;
+  final TextEditingController nameController;
+  final TextEditingController descController;
+  final DateTime? initialStartDate;
+  final DateTime? initialEndDate;
+  final Function(String, String, String?, String?) onSave;
+  final Function(String) onError;
+
+  const FlowDialog({
+    super.key,
+    required this.isEditing,
+    required this.nameController,
+    required this.descController,
+    this.initialStartDate,
+    this.initialEndDate,
+    required this.onSave,
+    required this.onError,
+  });
+
+  @override
+  State<FlowDialog> createState() => _FlowDialogState();
+}
+
+class _FlowDialogState extends State<FlowDialog> {
+  DateTime? selectedStartDate;
+  DateTime? selectedEndDate;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedStartDate = widget.initialStartDate;
+    selectedEndDate = widget.initialEndDate;
+  }
+
+  @override
+  void dispose() {
+    widget.nameController.dispose();
+    widget.descController.dispose();
+    super.dispose();
+  }
+
+  String _formatDateTime(DateTime dt) {
+    final formatter = DateFormat('yyyy-MM-dd HH:mm');
+    return formatter.format(dt);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.isEditing ? 'Edit Flow' : 'New Flow'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: widget.nameController,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: widget.descController,
+              decoration: const InputDecoration(labelText: 'Description'),
+            ),
+            const SizedBox(height: 16),
+            // Start datetime picker
+            ListTile(
+              leading: const Icon(Icons.calendar_today),
+              title: Text(
+                selectedStartDate != null
+                    ? _formatDateTime(selectedStartDate!)
+                    : 'Select start datetime (optional)',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              dense: true,
+              onTap: () async {
+                final DateTime? picked = await showDatePicker(
+                  context: context,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                  initialDate: selectedStartDate ?? DateTime.now(),
+                );
+                if (picked != null) {
+                  final TimeOfDay? time = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.fromDateTime(picked),
+                  );
+                  if (time != null) {
+                    final combined = DateTime(
+                      picked.year,
+                      picked.month,
+                      picked.day,
+                      time.hour,
+                      time.minute,
+                    );
+                    setState(() {
+                      selectedStartDate = combined;
+                    });
+                  }
+                }
+              },
+            ),
+            // End datetime picker
+            ListTile(
+              leading: const Icon(Icons.calendar_today),
+              title: Text(
+                selectedEndDate != null
+                    ? _formatDateTime(selectedEndDate!)
+                    : 'Select end datetime (optional)',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              dense: true,
+              onTap: () async {
+                final DateTime? picked = await showDatePicker(
+                  context: context,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                  initialDate: selectedEndDate ?? DateTime.now(),
+                );
+                if (picked != null) {
+                  final TimeOfDay? time = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.fromDateTime(picked),
+                  );
+                  if (time != null) {
+                    final combined = DateTime(
+                      picked.year,
+                      picked.month,
+                      picked.day,
+                      time.hour,
+                      time.minute,
+                    );
+                    setState(() {
+                      selectedEndDate = combined;
+                    });
+                  }
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () async {
+            final name = widget.nameController.text.trim();
+            final desc = widget.descController.text.trim();
+            if (name.isEmpty || desc.isEmpty) return;
+
+            // Validate: end_at can't be earlier than start_at but can be equal
+            if (selectedStartDate != null && selectedEndDate != null) {
+              if (selectedEndDate!.isBefore(selectedStartDate!)) {
+                widget.onError('Error: End datetime must be the same or after start datetime');
+                return;
+              }
+            }
+
+            // Format dates for API (ISO 8601)
+            final startAtStr = selectedStartDate != null
+                ? selectedStartDate!.toIso8601String()
+                : '';
+            final endAtStr = selectedEndDate != null
+                ? selectedEndDate!.toIso8601String()
+                : '';
+
+            Navigator.pop(context); // Close dialog
+
+            try {
+              await widget.onSave(name, desc, startAtStr.isNotEmpty ? startAtStr : null, endAtStr.isNotEmpty ? endAtStr : null);
+            } catch (e) {
+              widget.onError('Error: $e');
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
 class _FlowListScreenState extends State<FlowListScreen> {
   final ApiService _apiService = ApiService();
   late Future<List<FlowModel>> _flowsFuture;
@@ -159,159 +343,23 @@ class _FlowListScreenState extends State<FlowListScreen> {
 
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(isEditing ? 'Edit Flow' : 'New Flow'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descController,
-                decoration: const InputDecoration(labelText: 'Description'),
-              ),
-              const SizedBox(height: 16),
-              // Start datetime picker
-              ListTile(
-                leading: const Icon(Icons.calendar_today),
-                title: Text(
-                  selectedStartDate != null
-                      ? _formatDateTime(selectedStartDate!)
-                      : 'Select start datetime (optional)',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                dense: true,
-                onTap: () async {
-                  final DateTime? picked = await showDatePicker(
-                    context: dialogContext,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                    initialDate: selectedStartDate ?? DateTime.now(),
-                  );
-                  if (picked != null) {
-                    final TimeOfDay? time = await showTimePicker(
-                      context: dialogContext,
-                      initialTime: TimeOfDay.fromDateTime(picked),
-                    );
-                    if (time != null) {
-                      final combined = DateTime(
-                        picked.year,
-                        picked.month,
-                        picked.day,
-                        time.hour,
-                        time.minute,
-                      );
-                      setState(() {
-                        selectedStartDate = combined;
-                      });
-                    }
-                  }
-                },
-              ),
-              // End datetime picker
-              ListTile(
-                leading: const Icon(Icons.calendar_today),
-                title: Text(
-                  selectedEndDate != null
-                      ? _formatDateTime(selectedEndDate!)
-                      : 'Select end datetime (optional)',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                dense: true,
-                onTap: () async {
-                  final DateTime? picked = await showDatePicker(
-                    context: dialogContext,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                    initialDate: selectedEndDate ?? DateTime.now(),
-                  );
-                  if (picked != null) {
-                    final TimeOfDay? time = await showTimePicker(
-                      context: dialogContext,
-                      initialTime: TimeOfDay.fromDateTime(picked),
-                    );
-                    if (time != null) {
-                      final combined = DateTime(
-                        picked.year,
-                        picked.month,
-                        picked.day,
-                        time.hour,
-                        time.minute,
-                      );
-                      setState(() {
-                        selectedEndDate = combined;
-                      });
-                    }
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final name = nameController.text.trim();
-              final desc = descController.text.trim();
-              if (name.isEmpty || desc.isEmpty) return;
-
-              // Validate: end_at can't be earlier than start_at but can be equal
-              if (selectedStartDate != null && selectedEndDate != null) {
-                if (selectedEndDate!.isBefore(selectedStartDate!)) {
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    const SnackBar(content: Text('Error: End datetime must be the same or after start datetime')),
-                  );
-                  return;
-                }
-              }
-
-              // Format dates for API (ISO 8601)
-              final startAtStr = selectedStartDate != null
-                  ? selectedStartDate!.toIso8601String()
-                  : '';
-              final endAtStr = selectedEndDate != null
-                  ? selectedEndDate!.toIso8601String()
-                  : '';
-
-              Navigator.pop(context); // Close dialog
-
-              try {
-                if (isEditing) {
-                  await _apiService.updateFlow(
-                    flow.id,
-                    name,
-                    desc,
-                    startAt: startAtStr.isNotEmpty ? startAtStr : null,
-                    endAt: endAtStr.isNotEmpty ? endAtStr : null,
-                  );
-                } else {
-                  await _apiService.createFlow(
-                    name,
-                    desc,
-                    startAt: startAtStr.isNotEmpty ? startAtStr : null,
-                    endAt: endAtStr.isNotEmpty ? endAtStr : null,
-                  );
-                }
-                _refreshFlows();
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
-                  );
-                }
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (dialogContext) => FlowDialog(
+        isEditing: isEditing,
+        nameController: nameController,
+        descController: descController,
+        initialStartDate: selectedStartDate,
+        initialEndDate: selectedEndDate,
+        onSave: (name, desc, startAt, endAt) async {
+          if (isEditing) {
+            await _apiService.updateFlow(flow.id, name, desc, startAt: startAt, endAt: endAt);
+          } else {
+            await _apiService.createFlow(name, desc, startAt: startAt, endAt: endAt);
+          }
+          _refreshFlows();
+        },
+        onError: (message) {
+          ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(message)));
+        },
       ),
     );
   }
