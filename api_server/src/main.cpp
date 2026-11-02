@@ -2,6 +2,7 @@
 #include "DbPool.hpp"
 #include "IDatabase.hpp"
 #include "FlowsApi.hpp"
+#include "AuthApi.hpp"
 #include <pqxx/pqxx>
 #include <iostream>
 
@@ -15,9 +16,41 @@ void run_app() {
     auto db = std::make_shared<Database>(std::make_shared<pqxx::connection>(conn_str));
     
     FlowsApi api(db);
+    AuthApi auth_api(db);
 
     crow::SimpleApp app;
 
+    // ==========================================
+    // AUTHENTICATION ROUTES
+    // ==========================================
+    
+    // Register a new user (POST /api/v1/auth/register)
+    CROW_ROUTE(app, "/api/v1/auth/register").methods(crow::HTTPMethod::POST)([&auth_api](const crow::request& req) {
+        return auth_api.register_user(req);
+    });
+    
+    // Login user (POST /api/v1/auth/login)
+    CROW_ROUTE(app, "/api/v1/auth/login").methods(crow::HTTPMethod::POST)([&auth_api](const crow::request& req) {
+        return auth_api.login(req);
+    });
+    
+    // Get current user (GET /api/v1/auth/me) - requires auth
+    CROW_ROUTE(app, "/api/v1/auth/me").methods(crow::HTTPMethod::GET)([&auth_api](const crow::request& req) {
+        return auth_api.get_current_user(req);
+    });
+    
+    // Logout (DELETE /api/v1/auth/logout) - requires auth
+    CROW_ROUTE(app, "/api/v1/auth/logout").methods(crow::HTTPMethod::DELETE)([&auth_api](const crow::request& req) {
+        return auth_api.logout(req);
+    });
+    
+    // Get session info (GET /api/v1/auth/session) - requires auth
+    CROW_ROUTE(app, "/api/v1/auth/session").methods(crow::HTTPMethod::GET)([&auth_api](const crow::request& req) {
+        return auth_api.get_session_info(req);
+    });
+
+    // ==========================================
+    // FLOWS API ROUTES
     // ==========================================
     // CREATE (POST /api/v1/flows)
     // ==========================================

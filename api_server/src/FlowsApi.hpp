@@ -12,12 +12,13 @@ public:
     // CREATE (POST /api/v1/flows)
     crow::response create_flow(const crow::request& req) {
         auto json = crow::json::load(req.body);
-        if (!json || !json.has("name") || !json.has("description")) {
-            return crow::response(400, "Missing required fields: name, description");
+        if (!json || !json.has("name") || !json.has("description") || !json.has("owner_id")) {
+            return crow::response(400, "Missing required fields: name, description, owner_id");
         }
 
         std::string name = json["name"].s();
         std::string desc = json["description"].s();
+        std::string owner_id = json["owner_id"].s();
         
         // Handle optional start_at and end_at fields
         std::string start_at_str = "";
@@ -36,16 +37,16 @@ public:
         }
 
         try {
-            auto txn = db_->begin_work();
-
-            pqxx::result r = txn->exec_params(
-                "INSERT INTO flows (name, description, start_at, end_at) VALUES ($1, $2, $3, $4) "
+            pqxx::work txn(*db_->connection());
+            pqxx::result r = txn.exec_params(
+                "INSERT INTO flows (name, description, start_at, end_at, owner_id) VALUES ($1, $2, $3, $4, $5) "
                 "RETURNING id, name, description, created_at::text, start_at::text, end_at::text;",
                 name.c_str(), desc.c_str(), 
                 (has_start_at ? start_at_str.c_str() : nullptr),
-                (has_end_at ? end_at_str.c_str() : nullptr)
+                (has_end_at ? end_at_str.c_str() : nullptr),
+                owner_id.c_str()
             );
-            txn->commit();
+            txn.commit();
 
             crow::json::wvalue ret;
             ret["id"] = r[0]["id"].c_str();
@@ -64,9 +65,8 @@ public:
     // READ (GET /api/v1/flows/<id>)
     crow::response get_flow(const std::string& id) {
         try {
-            auto txn = db_->begin_nontransaction();
-
-            pqxx::result r = txn->exec_params(
+            pqxx::nontransaction txn(*db_->connection());
+            pqxx::result r = txn.exec_params(
                 "SELECT id, name, description, created_at::text, start_at::text, end_at::text FROM flows WHERE id = $1;", 
                 id.c_str()
             );
@@ -90,9 +90,9 @@ public:
     // READ ALL (GET /api/v1/flows)
     crow::response get_all_flows() {
         try {
-            auto txn = db_->begin_nontransaction();
+            pqxx::nontransaction txn(*db_->connection());
 
-            pqxx::result r = txn->exec(
+            pqxx::result r = txn.exec(
                 "SELECT id, name, description, created_at::text, start_at::text, end_at::text FROM flows ORDER BY created_at DESC;"
             );
 
@@ -142,9 +142,8 @@ public:
         }
 
         try {
-            auto txn = db_->begin_work();
-
-            pqxx::result r = txn->exec_params(
+            pqxx::work txn(*db_->connection());
+            pqxx::result r = txn.exec_params(
                 "UPDATE flows SET name = $1, description = $2, start_at = $3, end_at = $4 WHERE id = $5 "
                 "RETURNING id, name, description, created_at::text, start_at::text, end_at::text;",
                 name.c_str(), desc.c_str(), 
@@ -152,7 +151,7 @@ public:
                 (has_end_at ? end_at_str.c_str() : nullptr),
                 id.c_str()
             );
-            txn->commit();
+            txn.commit();
 
             if (r.empty()) return crow::response(404);
 
@@ -173,10 +172,9 @@ public:
     // DELETE (DELETE /api/v1/flows/<id>)
     crow::response delete_flow(const std::string& id) {
         try {
-            auto txn = db_->begin_work();
-
-            pqxx::result r = txn->exec_params("DELETE FROM flows WHERE id = $1 RETURNING id;", id.c_str());
-            txn->commit();
+            pqxx::work txn(*db_->connection());
+            pqxx::result r = txn.exec_params("DELETE FROM flows WHERE id = $1 RETURNING id;", id.c_str());
+            txn.commit();
 
             if (r.empty()) return crow::response(404);
 
