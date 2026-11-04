@@ -33,6 +33,7 @@ target_link_libraries(api_server PRIVATE
 # ==========================================
 add_executable(api_server_tests
     tests/test_flows.cpp
+    tests/test_auth.cpp
     src/DbPool.cpp
 )
 
