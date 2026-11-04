@@ -195,6 +195,16 @@ class ApiService {
     }
   }
 
+  Future<List<FlowModel>> getUserFlows(String token, String userId) async {
+    final allFlows = await getFlows(token);
+    // Filter flows where current user is the owner
+    List<FlowModel> userOwnedFlows = allFlows.where((flow) => flow.ownerId == userId).toList();
+    
+    // TODO: Add shared flows logic when API supports it
+    // For now, only return user's own flows
+    return userOwnedFlows;
+  }
+
   Future<void> createFlow(String token, String name, String description, String ownerId, {String? startAt, String? endAt}) async {
     final response = await http.post(
       Uri.parse('$baseUrl/flows'),
@@ -829,6 +839,10 @@ class _FlowListScreenState extends State<FlowListScreen> {
     return widget.authManager.token;
   }
 
+  String? _getUserId() {
+    return widget.authManager.user?.id;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -837,7 +851,13 @@ class _FlowListScreenState extends State<FlowListScreen> {
 
   void _refreshFlows() {
     setState(() {
-      _flowsFuture = _apiService.getFlows(_getToken()!);
+      final token = _getToken();
+      final userId = _getUserId();
+      if (token != null && userId != null) {
+        _flowsFuture = _apiService.getUserFlows(token, userId);
+      } else {
+        _flowsFuture = Future.value([]);
+      }
     });
   }
 

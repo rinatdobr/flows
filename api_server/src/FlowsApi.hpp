@@ -40,7 +40,7 @@ public:
             pqxx::work txn(*db_->connection());
             pqxx::result r = txn.exec_params(
                 "INSERT INTO flows (name, description, start_at, end_at, owner_id) VALUES ($1, $2, $3, $4, $5) "
-                "RETURNING id, name, description, created_at::text, start_at::text, end_at::text;",
+                "RETURNING id, name, description, created_at::text, start_at::text, end_at::text, owner_id::text;",
                 name.c_str(), desc.c_str(), 
                 (has_start_at ? start_at_str.c_str() : nullptr),
                 (has_end_at ? end_at_str.c_str() : nullptr),
@@ -55,6 +55,7 @@ public:
             ret["created_at"] = r[0]["created_at"].c_str();
             ret["start_at"] = r[0]["start_at"].c_str();
             ret["end_at"] = r[0]["end_at"].c_str();
+            ret["owner_id"] = r[0]["owner_id"].c_str();
 
             return crow::response(201, ret);
         } catch (const std::exception& e) {
@@ -67,7 +68,7 @@ public:
         try {
             pqxx::nontransaction txn(*db_->connection());
             pqxx::result r = txn.exec_params(
-                "SELECT id, name, description, created_at::text, start_at::text, end_at::text FROM flows WHERE id = $1;", 
+                "SELECT id, name, description, created_at::text, start_at::text, end_at::text, owner_id::text FROM flows WHERE id = $1;", 
                 id.c_str()
             );
 
@@ -80,6 +81,7 @@ public:
             ret["created_at"] = r[0]["created_at"].c_str();
             ret["start_at"] = r[0]["start_at"].c_str();
             ret["end_at"] = r[0]["end_at"].c_str();
+            ret["owner_id"] = r[0]["owner_id"].c_str();
 
             return crow::response(200, ret);
         } catch (const std::exception& e) {
@@ -93,7 +95,7 @@ public:
             pqxx::nontransaction txn(*db_->connection());
 
             pqxx::result r = txn.exec(
-                "SELECT id, name, description, created_at::text, start_at::text, end_at::text FROM flows ORDER BY created_at DESC;"
+                "SELECT id, name, description, created_at::text, start_at::text, end_at::text, owner_id::text FROM flows ORDER BY created_at DESC;"
             );
 
             crow::json::wvalue::list flows_list;
@@ -105,6 +107,7 @@ public:
                 item["created_at"] = row["created_at"].c_str();
                 item["start_at"] = row["start_at"].c_str();
                 item["end_at"] = row["end_at"].c_str();
+                item["owner_id"] = row["owner_id"].c_str();
                 flows_list.push_back(std::move(item));
             }
 
@@ -145,7 +148,7 @@ public:
             pqxx::work txn(*db_->connection());
             pqxx::result r = txn.exec_params(
                 "UPDATE flows SET name = $1, description = $2, start_at = $3, end_at = $4 WHERE id = $5 "
-                "RETURNING id, name, description, created_at::text, start_at::text, end_at::text;",
+                "RETURNING id, name, description, created_at::text, start_at::text, end_at::text, owner_id::text;",
                 name.c_str(), desc.c_str(), 
                 (has_start_at ? start_at_str.c_str() : nullptr),
                 (has_end_at ? end_at_str.c_str() : nullptr),
@@ -162,6 +165,7 @@ public:
             ret["created_at"] = r[0]["created_at"].c_str();
             ret["start_at"] = r[0]["start_at"].c_str();
             ret["end_at"] = r[0]["end_at"].c_str();
+            ret["owner_id"] = r[0]["owner_id"].c_str();
 
             return crow::response(200, ret);
         } catch (const std::exception& e) {

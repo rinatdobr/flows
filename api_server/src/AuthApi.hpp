@@ -33,13 +33,16 @@ public:
         
         // Optional fields
         std::string last_name = "";
-        std::string nickname = "";
+        std::optional<std::string> nickname = std::nullopt;
         
         if (json.has("last_name")) {
             last_name = json["last_name"].s();
         }
         if (json.has("nickname")) {
-            nickname = json["nickname"].s();
+            std::string nick_val = json["nickname"].s();
+            if (!nick_val.empty()) {
+                nickname = nick_val;
+            }
         }
         
         // Validate email format (basic validation)
@@ -57,7 +60,7 @@ public:
             return crow::response(409, "User with this email already exists");
         }
         
-        if (!nickname.empty() && db_->user_exists_by_nickname(nickname)) {
+        if (nickname.has_value() && db_->user_exists_by_nickname(nickname.value())) {
             return crow::response(409, "User with this nickname already exists");
         }
         
@@ -77,7 +80,7 @@ public:
         ret["email"] = email;
         ret["first_name"] = first_name;
         if (!last_name.empty()) ret["last_name"] = last_name;
-        if (!nickname.empty()) ret["nickname"] = nickname;
+        if (nickname.has_value()) ret["nickname"] = nickname.value();
         
         return crow::response(201, ret);
     }

@@ -5,6 +5,7 @@
 #include <vector>
 #include <utility>
 #include <tuple>
+#include <optional>
 
 // Interface for database operations - allows mocking
 class IDatabase {
@@ -34,7 +35,7 @@ public:
     virtual std::pair<bool, std::string> create_user(
         const std::string& first_name,
         const std::string& last_name,
-        const std::string& nickname,
+        const std::optional<std::string>& nickname,
         const std::string& email,
         const std::string& password_hash
     ) = 0;
@@ -80,7 +81,7 @@ public:
     std::pair<bool, std::string> create_user(
         const std::string& first_name,
         const std::string& last_name,
-        const std::string& nickname,
+        const std::optional<std::string>& nickname,
         const std::string& email,
         const std::string& password_hash
     ) override;
@@ -160,15 +161,16 @@ inline bool Database::user_exists_by_nickname(const std::string& nickname) {
 inline std::pair<bool, std::string> Database::create_user(
     const std::string& first_name,
     const std::string& last_name,
-    const std::string& nickname,
+    const std::optional<std::string>& nickname,
     const std::string& email,
     const std::string& password_hash
 ) {
     try {
         pqxx::work txn(*conn_);
+        const char* nickname_cstr = nickname.has_value() ? nickname->c_str() : nullptr;
         auto r = txn.exec_params(
             "INSERT INTO users (first_name, last_name, nickname, email, password_hash) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, nickname",
-            first_name.c_str(), last_name.c_str(), nickname.c_str(), email.c_str(), password_hash.c_str()
+            first_name.c_str(), last_name.c_str(), nickname_cstr, email.c_str(), password_hash.c_str()
         );
         txn.commit();
         
