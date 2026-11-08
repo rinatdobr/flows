@@ -52,10 +52,15 @@ void run_app() {
     // ==========================================
     // FLOWS API ROUTES
     // ==========================================
-    // CREATE (POST /api/v1/flows)
+    // CREATE root flow (POST /api/v1/flows)
     // ==========================================
     CROW_ROUTE(app, "/api/v1/flows").methods(crow::HTTPMethod::POST)([&api](const crow::request& req) {
         return api.create_flow(req);
+    });
+
+    // CREATE nested flow within a parent (POST /api/v1/flows/<parent_flow_id>/child)
+    CROW_ROUTE(app, "/api/v1/flows/<string>/child").methods(crow::HTTPMethod::POST)([&api](const crow::request& req, const std::string& parent_flow_id) {
+        return api.create_flow(req, parent_flow_id);
     });
 
     // ==========================================
@@ -84,6 +89,42 @@ void run_app() {
     // ==========================================
     CROW_ROUTE(app, "/api/v1/flows/<string>").methods(crow::HTTPMethod::DELETE)([&api](const std::string& id) {
         return api.delete_flow(id);
+    });
+
+    // ==========================================
+    // ITEMS API ROUTES
+    // ==========================================
+    // GET items in a flow (GET /api/v1/flows/<flow_id>/items)
+    CROW_ROUTE(app, "/api/v1/flows/<string>/items").methods(crow::HTTPMethod::GET)([&api](const std::string& flow_id) {
+        return api.get_flow_items(flow_id);
+    });
+
+    // UPDATE item order (PATCH /api/v1/flows/<flow_id>/items/<item_id>)
+    CROW_ROUTE(app, "/api/v1/flows/<string>/items/<string>").methods(crow::HTTPMethod::PATCH)([&api](const crow::request& req, const std::string& flow_id, const std::string& item_id) {
+        return api.update_item_order(req, flow_id, item_id);
+    });
+
+    // ==========================================
+    // TASK API ROUTES
+    // ==========================================
+    // CREATE task within a flow (POST /api/v1/flows/<flow_id>/tasks)
+    CROW_ROUTE(app, "/api/v1/flows/<string>/tasks").methods(crow::HTTPMethod::POST)([&api](const crow::request& req, const std::string& flow_id) {
+        return api.create_task(req, flow_id);
+    });
+
+    // READ task (GET /api/v1/tasks/<id>)
+    CROW_ROUTE(app, "/api/v1/tasks/<string>").methods(crow::HTTPMethod::GET)([&api](const std::string& id) {
+        return api.get_task(id);
+    });
+
+    // UPDATE task (PUT /api/v1/tasks/<id>)
+    CROW_ROUTE(app, "/api/v1/tasks/<string>").methods(crow::HTTPMethod::PUT)([&api](const crow::request& req, const std::string& id) {
+        return api.update_task(req, id);
+    });
+
+    // DELETE task (DELETE /api/v1/tasks/<id>)
+    CROW_ROUTE(app, "/api/v1/tasks/<string>").methods(crow::HTTPMethod::DELETE)([&api](const std::string& id) {
+        return api.delete_task(id);
     });
 
     // 2. Start the Server
