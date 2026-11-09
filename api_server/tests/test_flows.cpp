@@ -7,7 +7,7 @@
 // Simplified tests - test validation logic directly
 // Tests verify the business rules from conditions.md
 
-// Test 1: Missing required fields validation
+// Test flow creation validation: verify that flow without name field fails validation
 TEST(ValidationTest, MissingNameField) {
     crow::request req;
     req.body = R"({"description":"test desc"})";
@@ -17,6 +17,7 @@ TEST(ValidationTest, MissingNameField) {
     EXPECT_TRUE(json.has("description"));
 }
 
+// Test flow creation validation: verify that flow without description field fails validation
 TEST(ValidationTest, MissingDescriptionField) {
     crow::request req;
     req.body = R"({"name":"test"})";
@@ -26,6 +27,7 @@ TEST(ValidationTest, MissingDescriptionField) {
     EXPECT_FALSE(json.has("description"));
 }
 
+// Test root flow validation: verify that root flow without owner_id fails validation
 TEST(ValidationTest, MissingOwnerForRootFlow) {
     crow::request req;
     req.body = R"({"name":"test","description":"test desc"})";
@@ -36,6 +38,7 @@ TEST(ValidationTest, MissingOwnerForRootFlow) {
     EXPECT_FALSE(json.has("owner_id"));
 }
 
+// Test root flow validation: verify that root flow with all required fields (name, description, owner_id) is valid
 TEST(ValidationTest, ValidRootFlowData) {
     crow::request req;
     req.body = R"({"name":"test","description":"test desc","owner_id":"user-123"})";
@@ -46,7 +49,7 @@ TEST(ValidationTest, ValidRootFlowData) {
     EXPECT_TRUE(json.has("owner_id"));
 }
 
-// Test 2: Date validation - end_at should not be earlier than start_at
+// Test date validation: verify that end_at date before start_at date is detected by string comparison
 TEST(DateValidationTest, EndAtBeforeStartAt) {
     std::string start_at = "2024-01-02";
     std::string end_at = "2024-01-01";
@@ -55,6 +58,7 @@ TEST(DateValidationTest, EndAtBeforeStartAt) {
     EXPECT_TRUE(end_at < start_at);  // This is the validation logic from the code
 }
 
+// Test date validation: verify that end_at date equal to start_at date is considered valid
 TEST(DateValidationTest, EndAtEqualsStartAt) {
     std::string start_at = "2024-01-01";
     std::string end_at = "2024-01-01";
@@ -63,6 +67,7 @@ TEST(DateValidationTest, EndAtEqualsStartAt) {
     EXPECT_FALSE(end_at < start_at);
 }
 
+// Test date validation: verify that end_at date after start_at date is valid
 TEST(DateValidationTest, EndAtAfterStartAt) {
     std::string start_at = "2024-01-01";
     std::string end_at = "2024-01-02";
@@ -71,7 +76,7 @@ TEST(DateValidationTest, EndAtAfterStartAt) {
     EXPECT_FALSE(end_at < start_at);
 }
 
-// Test JSON parsing for the validation logic
+// Test JSON parsing: verify flow data with dates is correctly parsed and validation path is triggered
 TEST(JsonParsingTest, ParseWithDates) {
     crow::request req;
     req.body = R"({"name":"test","description":"test desc","start_at":"2024-01-02","end_at":"2024-01-01"})";
@@ -94,6 +99,7 @@ TEST(JsonParsingTest, ParseWithDates) {
     }
 }
 
+// Test JSON parsing: verify flow data without dates is correctly parsed (dates are optional)
 TEST(JsonParsingTest, ParseWithoutDates) {
     crow::request req;
     req.body = R"({"name":"test","description":"test desc"})";
@@ -110,7 +116,7 @@ TEST(JsonParsingTest, ParseWithoutDates) {
     EXPECT_FALSE(has_end_at);
 }
 
-// Test 3: Task validation
+// Test task validation: verify that task without name field fails validation
 TEST(TaskValidationTest, MissingTaskName) {
     crow::request req;
     req.body = R"({"description":"test desc"})";
@@ -120,6 +126,7 @@ TEST(TaskValidationTest, MissingTaskName) {
     EXPECT_TRUE(json.has("description"));
 }
 
+// Test task validation: verify that task without description field fails validation
 TEST(TaskValidationTest, MissingTaskDescription) {
     crow::request req;
     req.body = R"({"name":"test task"})";
@@ -129,6 +136,7 @@ TEST(TaskValidationTest, MissingTaskDescription) {
     EXPECT_FALSE(json.has("description"));
 }
 
+// Test task validation: verify that task with all required fields (name and description) is valid
 TEST(TaskValidationTest, ValidTaskData) {
     crow::request req;
     req.body = R"({"name":"test task","description":"test desc"})";
@@ -138,6 +146,7 @@ TEST(TaskValidationTest, ValidTaskData) {
     EXPECT_TRUE(json.has("description"));
 }
 
+// Test task validation: verify that task can include optional date fields (start_at, end_at)
 TEST(TaskValidationTest, TaskWithDates) {
     crow::request req;
     req.body = R"({"name":"test task","description":"test desc","start_at":"2024-01-01","end_at":"2024-01-02"})";
@@ -149,7 +158,7 @@ TEST(TaskValidationTest, TaskWithDates) {
     EXPECT_TRUE(json.has("end_at"));
 }
 
-// Test 4: Item order validation
+// Test item order validation: verify that order_id field is correctly parsed from request
 TEST(ItemOrderTest, OrderIdInRequest) {
     crow::request req;
     req.body = R"({"order_id":5})";
@@ -159,6 +168,7 @@ TEST(ItemOrderTest, OrderIdInRequest) {
     EXPECT_EQ(json["order_id"].i(), 5);
 }
 
+// Test item order validation: verify that missing order_id field is detected
 TEST(ItemOrderTest, MissingOrderId) {
     crow::request req;
     req.body = R"({"some_other_field":5})";
@@ -168,19 +178,21 @@ TEST(ItemOrderTest, MissingOrderId) {
     EXPECT_TRUE(json.has("some_other_field"));
 }
 
-// Test 5: Flow nesting scenarios
+// Test flow nesting: verify that parent_flow_id field correctly identifies nested flows
 TEST(FlowNestingTest, HasParentFlowId) {
     // When parent_flow_id is provided to create_flow, it's a nested flow
     std::string parent_flow_id = "parent-123";
     EXPECT_FALSE(parent_flow_id.empty());
 }
 
+// Test flow nesting: verify that empty parent_flow_id identifies a root flow
 TEST(FlowNestingTest, NoParentFlowId) {
     // When parent_flow_id is empty, it's a root flow
     std::string parent_flow_id = "";
     EXPECT_TRUE(parent_flow_id.empty());
 }
 
+// Test flow nesting: verify that nested flows do not require owner_id in request
 TEST(FlowNestingTest, NestedFlowNoOwnerRequired) {
     // Nested flows don't require owner_id in request
     crow::request req;
@@ -192,7 +204,7 @@ TEST(FlowNestingTest, NestedFlowNoOwnerRequired) {
     EXPECT_FALSE(json.has("owner_id"));
 }
 
-// Test 6: JSON parsing for flow creation
+// Test JSON parsing: verify root flow with owner_id is correctly parsed
 TEST(FlowJsonParsingTest, RootFlowWithOwner) {
     crow::request req;
     req.body = R"({"name":"root","description":"root desc","owner_id":"user-123"})";
@@ -204,6 +216,7 @@ TEST(FlowJsonParsingTest, RootFlowWithOwner) {
     EXPECT_EQ(json["owner_id"].s(), "user-123");
 }
 
+// Test JSON parsing: verify nested flow without owner_id is correctly parsed
 TEST(FlowJsonParsingTest, NestedFlowWithoutOwner) {
     crow::request req;
     req.body = R"({"name":"nested","description":"nested desc"})";
@@ -214,7 +227,7 @@ TEST(FlowJsonParsingTest, NestedFlowWithoutOwner) {
     EXPECT_FALSE(json.has("owner_id"));
 }
 
-// Test 7: Flow with optional dates
+// Test optional dates: verify flow with only start_at date is valid
 TEST(FlowOptionalDatesTest, StartAtOnly) {
     crow::request req;
     req.body = R"({"name":"flow","description":"desc","start_at":"2024-01-01"})";
@@ -224,6 +237,7 @@ TEST(FlowOptionalDatesTest, StartAtOnly) {
     EXPECT_FALSE(json.has("end_at"));
 }
 
+// Test optional dates: verify flow with only end_at date is valid
 TEST(FlowOptionalDatesTest, EndAtOnly) {
     crow::request req;
     req.body = R"({"name":"flow","description":"desc","end_at":"2024-01-02"})";
@@ -233,6 +247,7 @@ TEST(FlowOptionalDatesTest, EndAtOnly) {
     EXPECT_TRUE(json.has("end_at"));
 }
 
+// Test optional dates: verify flow with both dates is valid when end_at is after start_at
 TEST(FlowOptionalDatesTest, BothDatesValid) {
     crow::request req;
     req.body = R"({"name":"flow","description":"desc","start_at":"2024-01-01","end_at":"2024-01-02"})";
@@ -245,6 +260,7 @@ TEST(FlowOptionalDatesTest, BothDatesValid) {
     EXPECT_FALSE(end_at < start_at);  // Valid: end is after start
 }
 
+// Test optional dates: verify flow with both dates is valid when end_at equals start_at
 TEST(FlowOptionalDatesTest, BothDatesEqual) {
     crow::request req;
     req.body = R"({"name":"flow","description":"desc","start_at":"2024-01-01","end_at":"2024-01-01"})";
@@ -257,6 +273,7 @@ TEST(FlowOptionalDatesTest, BothDatesEqual) {
     EXPECT_FALSE(end_at < start_at);  // Valid: end equals start
 }
 
+// Test optional dates: verify flow with both dates fails validation when end_at is before start_at
 TEST(FlowOptionalDatesTest, EndBeforeStartInvalid) {
     crow::request req;
     req.body = R"({"name":"flow","description":"desc","start_at":"2024-01-02","end_at":"2024-01-01"})";
@@ -267,7 +284,7 @@ TEST(FlowOptionalDatesTest, EndBeforeStartInvalid) {
     EXPECT_TRUE(end_at < start_at);  // Invalid: end before start
 }
 
-// Test that the main app can be built and runs
+// Test that the project compiles successfully and main app can be built
 TEST(AppTest, CanBuild) {
     // This test just verifies that the project compiles
     EXPECT_TRUE(true);

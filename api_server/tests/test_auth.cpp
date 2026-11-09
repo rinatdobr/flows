@@ -204,6 +204,7 @@ crow::request make_auth_request(const std::string& body, const std::string& toke
 
 // ==================== Register User Tests ====================
 
+// Test successful user registration with all fields (email, password, first name, last name, nickname)
 TEST(AuthRegisterTest, SuccessFullRegistration) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -227,6 +228,7 @@ TEST(AuthRegisterTest, SuccessFullRegistration) {
     EXPECT_EQ(json["nickname"].s(), "johndoe");
 }
 
+// Test successful minimal user registration with only required fields (email, password, first name)
 TEST(AuthRegisterTest, SuccessMinimalRegistration) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -245,6 +247,7 @@ TEST(AuthRegisterTest, SuccessMinimalRegistration) {
     EXPECT_EQ(json["first_name"].s(), "Jane");
 }
 
+// Test that registration fails with appropriate error when invalid JSON is provided
 TEST(AuthRegisterTest, InvalidJSON) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -258,6 +261,7 @@ TEST(AuthRegisterTest, InvalidJSON) {
     EXPECT_NE(res.body.find("Invalid JSON"), std::string::npos);
 }
 
+// Test that registration fails when required email field is missing
 TEST(AuthRegisterTest, MissingEmail) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -273,6 +277,7 @@ TEST(AuthRegisterTest, MissingEmail) {
     EXPECT_NE(res.body.find("Missing required fields"), std::string::npos);
 }
 
+// Test that registration fails when required password field is missing
 TEST(AuthRegisterTest, MissingPassword) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -288,6 +293,7 @@ TEST(AuthRegisterTest, MissingPassword) {
     EXPECT_NE(res.body.find("Missing required fields"), std::string::npos);
 }
 
+// Test that registration fails when required first_name field is missing
 TEST(AuthRegisterTest, MissingFirstName) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -303,6 +309,7 @@ TEST(AuthRegisterTest, MissingFirstName) {
     EXPECT_NE(res.body.find("Missing required fields"), std::string::npos);
 }
 
+// Test that registration fails with invalid email format validation
 TEST(AuthRegisterTest, InvalidEmailFormat) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -319,6 +326,7 @@ TEST(AuthRegisterTest, InvalidEmailFormat) {
     EXPECT_NE(res.body.find("Invalid email format"), std::string::npos);
 }
 
+// Test that registration fails when password is shorter than minimum length (6 characters)
 TEST(AuthRegisterTest, ShortPassword) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -335,6 +343,7 @@ TEST(AuthRegisterTest, ShortPassword) {
     EXPECT_NE(res.body.find("Password must be at least 6 characters"), std::string::npos);
 }
 
+// Test that registration fails with 409 Conflict when trying to register with an email that already exists
 TEST(AuthRegisterTest, DuplicateEmail) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -360,6 +369,7 @@ TEST(AuthRegisterTest, DuplicateEmail) {
     EXPECT_NE(res2.body.find("already exists"), std::string::npos);
 }
 
+// Test that registration fails with 409 Conflict when trying to register with a nickname that already exists
 TEST(AuthRegisterTest, DuplicateNickname) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -389,6 +399,7 @@ TEST(AuthRegisterTest, DuplicateNickname) {
 
 // ==================== Login Tests ====================
 
+// Test successful login with valid credentials and verify that token and user_id are returned
 TEST(AuthLoginTest, SuccessfulLogin) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -416,6 +427,7 @@ TEST(AuthLoginTest, SuccessfulLogin) {
     EXPECT_EQ(json["email"].s(), "login@example.com");
 }
 
+// Test that login fails with 401 Unauthorized when trying to login with non-existent user
 TEST(AuthLoginTest, InvalidCredentials) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -431,6 +443,7 @@ TEST(AuthLoginTest, InvalidCredentials) {
     EXPECT_NE(res.body.find("Invalid email or password"), std::string::npos);
 }
 
+// Test that login fails with 401 Unauthorized when providing wrong password for existing user
 TEST(AuthLoginTest, WrongPassword) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -455,6 +468,7 @@ TEST(AuthLoginTest, WrongPassword) {
     EXPECT_NE(login_res.body.find("Invalid email or password"), std::string::npos);
 }
 
+// Test that login fails with 400 Bad Request when required email or password fields are missing
 TEST(AuthLoginTest, MissingFields) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -476,6 +490,7 @@ TEST(AuthLoginTest, MissingFields) {
 
 // ==================== Get Current User Tests ====================
 
+// Test that getting current user succeeds with a valid authentication token
 TEST(AuthGetCurrentUserTest, ValidToken) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -510,6 +525,7 @@ TEST(AuthGetCurrentUserTest, ValidToken) {
     EXPECT_EQ(json["email"].s(), "token@example.com");
 }
 
+// Test that getting current user fails with 401 Unauthorized when Authorization header is missing
 TEST(AuthGetCurrentUserTest, MissingAuthorizationHeader) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -521,6 +537,7 @@ TEST(AuthGetCurrentUserTest, MissingAuthorizationHeader) {
     EXPECT_NE(res.body.find("Missing Authorization header"), std::string::npos);
 }
 
+// Test that getting current user fails with 401 Unauthorized when Authorization header has invalid format
 TEST(AuthGetCurrentUserTest, InvalidAuthorizationFormat) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -533,6 +550,7 @@ TEST(AuthGetCurrentUserTest, InvalidAuthorizationFormat) {
     EXPECT_NE(res.body.find("Invalid Authorization header format"), std::string::npos);
 }
 
+// Test that getting current user fails with 401 Unauthorized when using an invalid or expired token
 TEST(AuthGetCurrentUserTest, InvalidToken) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -547,6 +565,7 @@ TEST(AuthGetCurrentUserTest, InvalidToken) {
 
 // ==================== Logout Tests ====================
 
+// Test successful logout with valid authentication token returns 204 No Content
 TEST(AuthLogoutTest, ValidLogout) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -579,6 +598,7 @@ TEST(AuthLogoutTest, ValidLogout) {
     EXPECT_EQ(logout_res.body, "");
 }
 
+// Test that logout fails with 500 Internal Server Error when using an invalid token
 TEST(AuthLogoutTest, InvalidToken) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -591,6 +611,7 @@ TEST(AuthLogoutTest, InvalidToken) {
     EXPECT_NE(res.body.find("Failed to logout"), std::string::npos);
 }
 
+// Test that logout fails with 401 Unauthorized when Authorization header is missing
 TEST(AuthLogoutTest, MissingAuthorization) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -604,6 +625,7 @@ TEST(AuthLogoutTest, MissingAuthorization) {
 
 // ==================== Get Session Info Tests ====================
 
+// Test that getting session info succeeds with a valid authentication token
 TEST(AuthGetSessionInfoTest, ValidSession) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -638,6 +660,7 @@ TEST(AuthGetSessionInfoTest, ValidSession) {
     EXPECT_EQ(json["email"].s(), "session@example.com");
 }
 
+// Test that getting session info fails with 401 Unauthorized when using an invalid token
 TEST(AuthGetSessionInfoTest, InvalidToken) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -652,6 +675,7 @@ TEST(AuthGetSessionInfoTest, InvalidToken) {
 
 // ==================== Edge Cases ====================
 
+// Test that registration succeeds when nickname is provided as empty string (treated as optional)
 TEST(AuthEdgeCasesTest, EmptyNickname) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -670,6 +694,7 @@ TEST(AuthEdgeCasesTest, EmptyNickname) {
     EXPECT_FALSE(json.has("nickname"));
 }
 
+// Test that registration succeeds with valid field lengths (50+ characters for names)
 TEST(AuthEdgeCasesTest, VeryLongFields) {
     auto mock_db = std::make_shared<MockDatabase>();
     AuthApi auth(mock_db);
@@ -689,7 +714,7 @@ TEST(AuthEdgeCasesTest, VeryLongFields) {
     EXPECT_EQ(res.code, 201);
 }
 
-// Test password hashing is consistent
+// Test that password hashing produces consistent results for the same password
 TEST(AuthPasswordTest, HashConsistency) {
     auto mock_db = std::make_shared<MockDatabase>();
     
